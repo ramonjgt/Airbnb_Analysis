@@ -1,0 +1,11 @@
+[project]
+name = "airbnb-sanmiguel-analysis"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "marimo>=0.17.7",
+    "pandas>=2.3.3",
+    "plotly>=6.4.0",
+    "scikit-learn>=1.7.2",
+]
