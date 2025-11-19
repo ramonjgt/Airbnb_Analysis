@@ -42,7 +42,7 @@ Instead of jupyter notebooks I used marimo notebooks. To see it just run the fol
 ```bash
 marimo edit notebook.py
 ```
-But I also published it in [marimo service](https://static.marimo.app/static/midtermprojectmachinelearningzoomcamp-h2jp)
+But I also published it in [marimo service](https://static.marimo.app/static/airbnbanalysis-xy8k)
 
 ### 4. Run the Scripts in Terminal
 
