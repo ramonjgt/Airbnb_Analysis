@@ -38,9 +38,10 @@ def _():
     import pandas as pd
     import holoviews as hv
     from holoviews import opts
+    from holoviews.operation import gridmatrix
     import numpy as np
     import glob
-    return glob, hv, mo, np, opts, pd
+    return glob, gridmatrix, hv, mo, np, opts, pd
 
 
 @app.cell
@@ -337,7 +338,7 @@ def _(mo):
 
 @app.cell
 def _(drop_professional_management):
-    drop_professional_management['amenities count'] = drop_professional_management['amenities'].str.split(',').str.len().astype(int)
+    drop_professional_management['amenities_count'] = drop_professional_management['amenities'].str.split(',').str.len().astype(int)
     df = drop_professional_management.drop(columns=['amenities'])
     df.info()
     return (df,)
@@ -388,12 +389,30 @@ def _(df, hv, np, opts):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    From above histogram I can conclude that the _number of booked/reserved days in trailing twelve months_ is a good variable to be predicted because is distributed in a well way, having samples for a lot of different values.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Feature Correlation Matrix
+    """)
+    return
+
+
 @app.cell
 def _(df, hv):
     # Select numeric columns
     numeric_cols = ['photos_count', 'guests', 'bedrooms', 'beds', 'baths', 
-                    'min_nights', 'cleaning_fee', 'num_reviews', 'rating_overall', 
-                    'amenities count', 'ttm_reserved_days']
+                    'min_nights', 'cleaning_fee', 'extra_guest_fee', 'num_reviews', 
+                    'rating_overall', 'rating_accuracy', 'rating_checkin', 'rating_cleanliness',
+                    'rating_communication', 'rating_location', 'rating_value', 'amenities_count', 
+                    'ttm_reserved_days']
 
     # Compute correlation and reshape for HoloViews
     corr_matrix = df[numeric_cols].corr()
@@ -417,12 +436,30 @@ def _(df, hv):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    With above plot I decided to drop all _rating_ features _rating_overall_ because it is calculated from the other _ratings_ features.
+
+    I also see that _baths_, _beds_, _bedrooms_ and _guest_ have a high correlation, but that is something obvious, because they are very related to the size of the house. In this case I decided to not drop any of them because in this case the dataset doesn´t have any other feature that summarize all of them.
+    """)
+    return
+
+
 @app.cell
-def _(df, hv):
+def _(df):
+    df1 = df.drop(columns=['rating_value', 'rating_location', 'rating_communication', 'rating_cleanliness', 'rating_checkin', 'rating_accuracy' ])
+    return (df1,)
+
+
+@app.cell
+def _(df1, hv):
+    df1['superhost'] = df1['superhost'].astype(str)
+    df1['instant_book'] = df1['instant_book'].astype(str)
     # kdims = Categorical groupings (X-axis)
     # vdims = Continuous variable (Y-axis)
     box_plot = hv.BoxWhisker(
-        df, 
+        df1, 
         kdims=['superhost', 'instant_book'], 
         vdims=['ttm_reserved_days']
     ).opts(
@@ -436,6 +473,211 @@ def _(df, hv):
     )
 
     box_plot
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Both, _superhost_ and _instant_book_ appear not being influencing in _ttm_reserved_days_ but I am not sure if is good idea to drop them, I will leave them as part of the model.
+    """)
+    return
+
+
+@app.cell(disabled=True)
+def _(df1, gridmatrix, hv):
+    ds=hv.Dataset(df1)
+    grouped_by_room_type= ds.groupby('cancellation_policy', container_type=hv.NdOverlay)
+    grid = gridmatrix(grouped_by_room_type, diagonal_type=hv.Scatter)
+    grid.options('Scatter',
+                 width=120,   # Smaller width per square
+                 height=120,  # Smaller height per square
+                 fontsize={'labels': 8}, # Reduce font size if making plots small
+                 tools=['hover', 'box_select'], 
+                 bgcolor='#efe8e2', 
+                 fill_alpha=0.2, 
+                 size=4
+                )
+    return
+
+
+@app.cell
+def _(df1):
+    df1['superhost'] = df1['superhost'].astype(bool)
+    df1['instant_book'] = df1['instant_book'].astype(bool)
+    df1
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    # Model Training
+    """)
+    return
+
+
+@app.cell
+def _():
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
+    from sklearn.impute import SimpleImputer
+    from sklearn.compose import ColumnTransformer
+    from sklearn.pipeline import Pipeline
+    from sklearn.linear_model import Ridge
+    from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+    from sklearn.metrics import mean_absolute_error, r2_score
+    return (
+        ColumnTransformer,
+        FunctionTransformer,
+        GradientBoostingRegressor,
+        OneHotEncoder,
+        Pipeline,
+        RandomForestRegressor,
+        Ridge,
+        SimpleImputer,
+        StandardScaler,
+        mean_absolute_error,
+        r2_score,
+        train_test_split,
+    )
+
+
+@app.cell
+def _():
+    # ---------------------------------------------------------
+    # 1. Setup Data (Matching Schema)
+    # ---------------------------------------------------------
+
+    target_col = 'ttm_reserved_days' # I am trying to predict this
+
+    # Categorical features (Text)
+    cat_features = ['listing_type', 'room_type', 'cancellation_policy']
+
+    # Boolean features (True/False)
+    bool_features = ['superhost', 'instant_book']
+
+    # Numerical features (Everything else)
+    num_features = [
+        'photos_count', 'guests', 'bedrooms', 'beds', 'baths', 
+        'min_nights', 'cleaning_fee', 'extra_guest_fee', 'num_reviews', 
+        'rating_overall', 'amenities_count'
+    ]
+    return bool_features, cat_features, num_features, target_col
+
+
+@app.cell
+def _(
+    ColumnTransformer,
+    FunctionTransformer,
+    OneHotEncoder,
+    Pipeline,
+    SimpleImputer,
+    StandardScaler,
+    bool_features,
+    cat_features,
+    num_features,
+):
+    # ---------------------------------------------------------
+    # 2. Preprocessing Pipelines
+    # ---------------------------------------------------------
+
+    # Pipeline for Numerical Data:
+    # 1. Fill missing values with the Median (handles the missing 'num_reviews')
+    # 2. Scale data (StandardScaler) helps models converge faster
+    numeric_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', StandardScaler())
+    ])
+
+    # Pipeline for Categorical Data:
+    # 1. OneHotEncode converts "Apartment" -> [0, 1, 0]
+    # handle_unknown='ignore' prevents crashes if new categories appear in the future
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('encoder', OneHotEncoder(handle_unknown='ignore'))
+    ])
+
+    # Pipeline for Boolean Data: Cast to Float -> Fill missing
+    # This converts True->1.0 and False->0.0
+    boolean_transformer = Pipeline(steps=[
+        ('cast_to_float', FunctionTransformer(lambda x: x.astype(float), validate=False)),
+        ('imputer', SimpleImputer(strategy='most_frequent'))
+    ])
+
+    # Combine them into a ColumnTransformer
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, num_features),
+            ('cat', categorical_transformer, cat_features),
+            ('bool', boolean_transformer, bool_features) # <--- Use the new transformer here
+        ])
+    return (preprocessor,)
+
+
+@app.cell
+def _(
+    GradientBoostingRegressor,
+    Pipeline,
+    RandomForestRegressor,
+    Ridge,
+    df1,
+    mean_absolute_error,
+    preprocessor,
+    r2_score,
+    target_col,
+    train_test_split,
+):
+    # ---------------------------------------------------------
+    # 3. Define the Model
+    # ---------------------------------------------------------
+
+    models = {
+        "Ridge Regression (Linear) - Alpha = 1.0": Ridge(alpha=1.0),
+        "Ridge Regression (Linear) - Alpha = 5.0": Ridge(alpha=5.0),
+        "Ridge Regression (Linear) - Alpha = 10.0": Ridge(alpha=10.0),
+        "Random Forest - n_estimators = 100": RandomForestRegressor(n_estimators=100, random_state=42),
+        "Random Forest - n_estimators = 500": RandomForestRegressor(n_estimators=500, random_state=42),
+        "Random Forest - n_estimators = 1000": RandomForestRegressor(n_estimators=1000, random_state=42),
+        "Gradient Boosting - n_estimators = 100, learning_rate = 0.1": GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=42),
+        "Gradient Boosting - n_estimators = 500, learning_rate = 0.1": GradientBoostingRegressor(n_estimators=500, learning_rate=0.1, random_state=42),
+        "Gradient Boosting - n_estimators = 1000, learning_rate = 0.1": GradientBoostingRegressor(n_estimators=1000, learning_rate=0.1, random_state=42),
+        "Gradient Boosting - n_estimators = 100, learning_rate = 0.5": GradientBoostingRegressor(n_estimators=100, learning_rate=0.5, random_state=42),
+        "Gradient Boosting - n_estimators = 500, learning_rate = 0.5": GradientBoostingRegressor(n_estimators=500, learning_rate=0.5, random_state=42),
+        "Gradient Boosting - n_estimators = 1000, learning_rate = 0.5": GradientBoostingRegressor(n_estimators=1000, learning_rate=0.5, random_state=42),
+        "Gradient Boosting - n_estimators = 100, learning_rate = 1.0": GradientBoostingRegressor(n_estimators=100, learning_rate=1.0, random_state=42),
+        "Gradient Boosting - n_estimators = 500, learning_rate = 1.0": GradientBoostingRegressor(n_estimators=500, learning_rate=1.0, random_state=42),
+        "Gradient Boosting - n_estimators = 1000, learning_rate = 1.0": GradientBoostingRegressor(n_estimators=1000, learning_rate=1.0, random_state=42),
+    }
+
+    print(f"{'Model Name':<30} | {'MAE':<10} | {'R2 Score':<10}")
+    print("-" * 55)
+
+    X = df1.drop(columns=[target_col])
+    y = df1[target_col]
+
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    for name, model_instance in models.items():
+        # Create a new pipeline with the specific model
+        # (Assuming 'preprocessor' is defined from the previous steps)
+        clf = Pipeline(steps=[
+            ('preprocessor', preprocessor),
+            ('regressor', model_instance)
+        ])
+    
+        # Train
+        clf.fit(X_train, y_train)
+    
+        # Predict
+        y_pred = clf.predict(X_test)
+    
+        # Evaluate
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+    
+        print(f"{name:<30} | {mae:<10.2f} | {r2:<10.4f}")
     return
 
 
