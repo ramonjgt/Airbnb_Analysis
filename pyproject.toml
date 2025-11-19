@@ -1,11 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "airbnb-sanmiguel-analysis"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.121.3",
+    "uvicorn>=0.38.0",
     "marimo>=0.17.7",
     "pandas>=2.3.3",
-    "plotly>=6.4.0",
     "scikit-learn>=1.7.2",
+    "joblib>=1.5.2",
+    "holoviews==1.22.0",
+    "numpy==2.3.4",
 ]
+
+[tool.marimo.runtime]
+output_max_bytes = 10_000_000_000

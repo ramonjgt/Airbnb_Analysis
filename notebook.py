@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.17.7"
-app = marimo.App(width="full")
+app = marimo.App(width="full", auto_download=["ipynb"])
 
 
 @app.cell(hide_code=True)
@@ -152,7 +152,7 @@ def _(mo):
 
 @app.cell
 def _(combined_df):
-    descriptive_features_df= combined_df.drop(columns=['listing_name', 'cover_photo_url', 'host_id', 'host_name',
+    descriptive_features_df= combined_df.drop(columns=['listing_id', 'listing_name', 'cover_photo_url', 'host_id', 'host_name',
                                                        'cohost_ids','cohost_names', 'latitude','longitude',
                                                        'registration', 'currency', 'ttm_revenue', 'ttm_revenue_native', 
                                                        'ttm_avg_rate', 'ttm_avg_rate_native', 'ttm_occupancy', 'ttm_adjusted_occupancy',
@@ -180,9 +180,9 @@ def _(mo):
 
 
 @app.cell
-def _(descriptive_features_df):
-    descriptive_features_index = descriptive_features_df.set_index('listing_id')
-    return (descriptive_features_index,)
+def _():
+    # descriptive_features_index = descriptive_features_df.set_index('listing_id')
+    return
 
 
 @app.cell(hide_code=True)
@@ -196,8 +196,8 @@ def _(mo):
 
 
 @app.cell
-def _(descriptive_features_index):
-    descriptive_features_index['instant_book'].value_counts(dropna=False)
+def _(descriptive_features_df):
+    descriptive_features_df['instant_book'].value_counts(dropna=False)
     return
 
 
@@ -210,8 +210,8 @@ def _(mo):
 
 
 @app.cell
-def _(descriptive_features_index):
-    drop_instant_book_nulls = descriptive_features_index.dropna(subset=['instant_book'])
+def _(descriptive_features_df):
+    drop_instant_book_nulls = descriptive_features_df.dropna(subset=['instant_book'])
     drop_instant_book_nulls = drop_instant_book_nulls.astype({'instant_book': 'bool'})
     return (drop_instant_book_nulls,)
 
@@ -452,6 +452,14 @@ def _(df):
     return (df1,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Box plots of superhost starus and instant book.
+    """)
+    return
+
+
 @app.cell
 def _(df1, hv):
     df1['superhost'] = df1['superhost'].astype(str)
@@ -486,6 +494,8 @@ def _(mo):
 
 @app.cell(disabled=True)
 def _(df1, gridmatrix, hv):
+    #deactivating this cell to publish it to marimo service, but it render a beatiful plot.
+
     ds=hv.Dataset(df1)
     grouped_by_room_type= ds.groupby('cancellation_policy', container_type=hv.NdOverlay)
     grid = gridmatrix(grouped_by_room_type, diagonal_type=hv.Scatter)
@@ -509,7 +519,7 @@ def _(df1):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     # Model Training
@@ -666,18 +676,26 @@ def _(
             ('preprocessor', preprocessor),
             ('regressor', model_instance)
         ])
-    
+
         # Train
         clf.fit(X_train, y_train)
-    
+
         # Predict
         y_pred = clf.predict(X_test)
-    
+
         # Evaluate
         mae = mean_absolute_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
-    
+
         print(f"{name:<30} | {mae:<10.2f} | {r2:<10.4f}")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **The best model is Gradient Boosting - n_estimators = 100, learning_rate = 0.1 because it has the lowest MAE (45.46) and the highest R2 Score (0.3133)**
+    """)
     return
 
 
